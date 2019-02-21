@@ -77,7 +77,7 @@ module Replicate
         options = reflection.options
         if options[:polymorphic]
           reference_class =
-            if ::ActiveRecord::VERSION::MAJOR == 3 && ::ActiveRecord::VERSION::MINOR > 0
+            if ::ActiveRecord::VERSION::MAJOR >= 3 && ::ActiveRecord::VERSION::MINOR > 0
               attributes[reflection.foreign_type]
             else
               attributes[options[:foreign_type]]
