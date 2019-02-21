@@ -16,8 +16,6 @@ require 'replicate'
 dbfile = File.expand_path('../db', __FILE__)
 File.unlink dbfile if File.exist?(dbfile)
 ActiveRecord::Base.establish_connection(:adapter => "sqlite3", :database => dbfile)
-require 'test_after_commit'
-
 # load schema
 ActiveRecord::Migration.verbose = false
 ActiveRecord::Schema.define do
@@ -61,7 +59,7 @@ end
 # models
 class User < ActiveRecord::Base
   has_one  :profile, :dependent => :destroy
-  has_many :emails,  :dependent => :destroy, :order => 'id'
+  has_many :emails,  -> { order('id') }, :dependent => :destroy
   has_many :notes,   :as => :notable
   replicate_natural_key :login
 end

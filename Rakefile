@@ -1,5 +1,7 @@
 require 'rbconfig'
 require 'rake/clean'
+require 'rake/testtask'
+
 task :default => [:setup, :test]
 
 vendor_dir   = './vendor'
@@ -15,11 +17,13 @@ task :setup => 'setup:latest' do
 end
 
 desc "Run tests"
-task :test do
-  ENV['RUBYOPT'] = [ENV['RUBYOPT'], 'rubygems'].compact.join(' ')
-  ENV['RUBYLIB'] = ['lib', ENV['RUBYLIB']].compact.join(':')
-  sh "testrb test/*_test.rb", :verbose => false
+
+Rake::TestTask.new do |t|
+	t.libs << "lib"
+  t.test_files = FileList['test/*_test.rb']
+  t.verbose = false
 end
+
 CLEAN.include 'test/db'
 
 desc "Build gem"
