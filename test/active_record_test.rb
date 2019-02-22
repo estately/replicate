@@ -1,16 +1,11 @@
-require 'minitest/autorun'
+$VERBOSE = nil
+require_relative 'test_helper'
 require 'minitest/around/unit'
 require 'stringio'
-
-# require a specific AR version.
-version = ENV['AR_VERSION']
-gem 'activerecord', "~> #{version}" if version
 require 'active_record'
 require 'active_record/version'
 version = ActiveRecord::VERSION::STRING
 warn "Using activerecord #{version}"
-
-# replicate must be loaded after AR
 require 'replicate'
 
 # create the sqlite db on disk
@@ -75,14 +70,12 @@ class Email < ActiveRecord::Base
   replicate_natural_key :user_id, :email
 end
 
-if version[0,3] > '2.2'
-  class WebPage < ActiveRecord::Base
-    belongs_to :domain, :foreign_key => 'domain_host', :primary_key => 'host'
-  end
+class WebPage < ActiveRecord::Base
+  belongs_to :domain, :foreign_key => 'domain_host', :primary_key => 'host'
+end
 
-  class Domain < ActiveRecord::Base
-    replicate_natural_key :host
-  end
+class Domain < ActiveRecord::Base
+  replicate_natural_key :host
 end
 
 class Note < ActiveRecord::Base
@@ -128,10 +121,8 @@ class ActiveRecordTest < Minitest::Test
     user = User.create! :login => 'tmm1'
     user.create_profile :name => 'tmm1', :homepage => 'https://github.com/tmm1'
 
-    if defined?(Domain)
-      github = Domain.create! :host => 'github.com'
-      github_about_page = WebPage.create! :url => 'http://github.com/about', :domain => github
-    end
+    github = Domain.create! :host => 'github.com'
+    WebPage.create! :url => 'http://github.com/about', :domain => github
   end
 
   def test_extension_modules_loaded
@@ -172,7 +163,7 @@ class ActiveRecordTest < Minitest::Test
 
     assert_equal 2, objects.size
 
-    type, id, attrs, obj = objects.shift
+    _type, _id, attrs, _obj = objects.shift
     assert_nil attrs['created_at']
   end
 
@@ -186,7 +177,7 @@ class ActiveRecordTest < Minitest::Test
 
     assert_equal 1, objects.size
 
-    type, id, attrs, obj = objects.shift
+    type, _id, _attrs, _obj = objects.shift
     assert_equal 'User', type
   end
 
@@ -343,7 +334,7 @@ class ActiveRecordTest < Minitest::Test
     rtomayko = User.find_by_login('rtomayko')
     @dumper.dump rtomayko, :omit => [:created_at]
 
-    type, id, attrs, obj = objects.shift
+    type, _id, attrs, _obj = objects.shift
     assert_equal 'User', type
     assert attrs['updated_at']
     assert_nil attrs['created_at']
@@ -390,7 +381,7 @@ class ActiveRecordTest < Minitest::Test
 
     assert_equal 1, objects.size
 
-    type, id, attrs, obj = objects.shift
+    type, _id, attrs, _obj = objects.shift
     assert_equal 'Note', type
     assert_nil attrs['notable_type']
     assert_nil attrs['notable_id']
@@ -420,7 +411,7 @@ class ActiveRecordTest < Minitest::Test
     @dumper.dump @rtomayko&.profile
 
     assert_equal 1, objects.size
-    type, id, attrs, obj = objects.shift
+    _type, _id, attrs, _obj = objects.shift
     assert_equal @rtomayko.profile.user_id, attrs["user_id"]
   end
 

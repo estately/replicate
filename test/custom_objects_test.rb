@@ -1,4 +1,4 @@
-require 'test/unit'
+require_relative 'test_helper'
 require 'stringio'
 require 'replicate'
 
@@ -21,7 +21,7 @@ class MyCustomObject
   end
 end
 
-class CustomObjectsTest < Test::Unit::TestCase
+class CustomObjectsTest < Minitest::Test
   def test_custom_dump
     @dumper = Replicate::Dumper.new
     called = false
