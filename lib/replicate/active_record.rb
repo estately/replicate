@@ -1,5 +1,4 @@
 require 'active_record'
-require 'active_record/version'
 
 module Replicate
   # ActiveRecord::Base instance methods used to dump replicant objects for the
@@ -76,12 +75,7 @@ module Replicate
       def replicate_reflection_info(reflection)
         options = reflection.options
         if options[:polymorphic]
-          reference_class =
-            if ::ActiveRecord::VERSION::MAJOR >= 3 && ::ActiveRecord::VERSION::MINOR > 0
-              attributes[reflection.foreign_type]
-            else
-              attributes[options[:foreign_type]]
-            end
+          reference_class = attributes[reflection.foreign_type]
           return if reference_class.nil?
 
           klass = reference_class.constantize
@@ -269,11 +263,7 @@ module Replicate
         replicate_natural_key.each do |attribute_name|
           conditions[attribute_name] = attributes[attribute_name.to_s]
         end
-        if ::ActiveRecord::VERSION::MAJOR >= 4
-          where(conditions).first
-        else
-          find(:first, :conditions => conditions)
-        end
+        where(conditions).first
       end
 
       # Update an AR object's attributes and persist to the database without
@@ -289,11 +279,7 @@ module Replicate
 
         # save the instance bypassing all callbacks and validations
         replicate_disable_callbacks instance
-        if ::ActiveRecord::VERSION::MAJOR >= 3
-          instance.save :validate => false
-        else
-          instance.save false
-        end
+        instance.save :validate => false
 
         [instance.id, instance]
       end
@@ -302,22 +288,8 @@ module Replicate
       # instance is effected. There is no way to re-enable callbacks once
       # they've been disabled on an object.
       def replicate_disable_callbacks(instance)
-        if ::ActiveRecord::VERSION::MAJOR >= 3
-          # AR 3.1.x, 3.2.x
-          def instance.run_callbacks(*args); yield if block_given?; end
-
-          # AR 3.0.x
-          def instance._run_save_callbacks(*args); yield; end
-          def instance._run_create_callbacks(*args); yield; end
-          def instance._run_update_callbacks(*args); yield; end
-          def instance._run_commit_callbacks(*args); yield; end
-        else
-          # AR 2.x
-          def instance.callback(*args)
-          end
-          def instance.record_timestamps
-            false
-          end
+        def instance.run_callbacks(*args)
+          yield if block_given?
         end
       end
 

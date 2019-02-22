@@ -37,7 +37,8 @@ Gem::Specification.new do |s|
   s.add_development_dependency 'activerecord', '~> 5.1'
   s.add_development_dependency 'sqlite3', '~> 1.3.6'
   s.add_development_dependency 'rake'
-  s.add_development_dependency 'test-unit'
+  s.add_development_dependency 'minitest'
+  s.add_development_dependency 'minitest-around'
 
   s.require_paths = %w[lib]
 end

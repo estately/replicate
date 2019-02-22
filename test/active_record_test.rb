@@ -1,4 +1,5 @@
-require 'test/unit'
+require 'minitest/autorun'
+require 'minitest/around/unit'
 require 'stringio'
 
 # require a specific AR version.
@@ -94,30 +95,27 @@ end
 
 # The test case loads some fixture data once and uses transaction rollback to
 # reset fixture state for each test's setup.
-class ActiveRecordTest < Test::Unit::TestCase
-  def setup
-    self.class.fixtures
-    ActiveRecord::Base.connection.increment_open_transactions
-    ActiveRecord::Base.connection.begin_db_transaction
+class ActiveRecordTest < Minitest::Test
+  i_suck_and_my_tests_are_order_dependent!
 
-    @rtomayko = User.find_by_login('rtomayko')
-    @kneath   = User.find_by_login('kneath')
-    @tmm1     = User.find_by_login('tmm1')
+  def around(&block)
+    ActiveRecord::Base.connection.transaction do
+      self.class.fixtures
 
-    User.replicate_associations = []
+      @rtomayko = User.find_by_login('rtomayko')
+      @kneath   = User.find_by_login('kneath')
+      @tmm1     = User.find_by_login('tmm1')
 
-    @dumper = Replicate::Dumper.new
-    @loader = Replicate::Loader.new
-  end
+      User.replicate_associations = []
 
-  def teardown
-    ActiveRecord::Base.connection.rollback_db_transaction
-    ActiveRecord::Base.connection.decrement_open_transactions
+      @dumper = Replicate::Dumper.new
+      @loader = Replicate::Loader.new
+      yield
+      raise ActiveRecord::Rollback
+    end
   end
 
   def self.fixtures
-    return if @fixtures
-    @fixtures = true
     user = User.create! :login => 'rtomayko'
     user.create_profile :name => 'Ryan Tomayko', :homepage => 'http://tomayko.com'
     user.emails.create! :email => 'ryan@github.com'
@@ -146,7 +144,7 @@ class ActiveRecordTest < Test::Unit::TestCase
     @dumper.listen { |type, id, attrs, obj| objects << [type, id, attrs, obj] }
 
     rtomayko = User.find_by_login('rtomayko')
-    @dumper.dump rtomayko.profile
+    @dumper.dump rtomayko&.profile
 
     assert_equal 2, objects.size
 
@@ -175,7 +173,7 @@ class ActiveRecordTest < Test::Unit::TestCase
     assert_equal 2, objects.size
 
     type, id, attrs, obj = objects.shift
-    assert_equal nil, attrs['created_at']
+    assert_nil attrs['created_at']
   end
 
   def test_omit_dumping_of_association
@@ -198,7 +196,7 @@ class ActiveRecordTest < Test::Unit::TestCase
       @dumper.listen { |type, id, attrs, obj| objects << [type, id, attrs, obj] }
 
       github_about_page = WebPage.find_by_url('http://github.com/about')
-      assert_equal "github.com", github_about_page.domain.host
+      assert_equal "github.com", github_about_page&.domain&.host
       @dumper.dump github_about_page
 
       WebPage.delete_all
@@ -331,7 +329,7 @@ class ActiveRecordTest < Test::Unit::TestCase
     objects = []
     @dumper.listen { |type, id, attrs, obj| objects << [type, id, attrs, obj] }
 
-    users = User.all(:conditions => {:login => %w[rtomayko kneath]})
+    users = User.where(:login => %w[rtomayko kneath])
     @dumper.dump users, :associations => [:emails], :omit => [:profile]
 
     assert_equal 5, objects.size
@@ -394,8 +392,8 @@ class ActiveRecordTest < Test::Unit::TestCase
 
     type, id, attrs, obj = objects.shift
     assert_equal 'Note', type
-    assert_equal nil, attrs['notable_type']
-    assert_equal nil, attrs['notable_id']
+    assert_nil attrs['notable_type']
+    assert_nil attrs['notable_id']
   end
 
   def test_dumps_polymorphic_namespaced_associations
@@ -419,7 +417,7 @@ class ActiveRecordTest < Test::Unit::TestCase
     @dumper.listen { |type, id, attrs, obj| objects << [type, id, attrs, obj] }
 
     Profile.replicate_omit_attributes :user
-    @dumper.dump @rtomayko.profile
+    @dumper.dump @rtomayko&.profile
 
     assert_equal 1, objects.size
     type, id, attrs, obj = objects.shift
@@ -436,7 +434,7 @@ class ActiveRecordTest < Test::Unit::TestCase
     %w[rtomayko kneath tmm1].each do |login|
       user = User.find_by_login(login)
       @dumper.dump user
-      user.destroy
+      user&.destroy
       dumped_users[login] = user
     end
     assert_equal 9, objects.size
@@ -460,8 +458,8 @@ class ActiveRecordTest < Test::Unit::TestCase
     # make sure everything was recreated
     %w[rtomayko kneath tmm1].each do |login|
       user = User.find_by_login(login)
-      assert_not_nil user
-      assert_not_nil user.profile
+      assert user
+      assert user&.profile
       assert !user.emails.empty?, "#{login} has no emails" if login != 'tmm1'
     end
   end
@@ -475,7 +473,7 @@ class ActiveRecordTest < Test::Unit::TestCase
     dumped_users = {}
     %w[rtomayko kneath tmm1].each do |login|
       user = User.find_by_login(login)
-      user.profile.update_attribute :name, 'CHANGED'
+      user&.profile&.update_attribute :name, 'CHANGED'
       @dumper.dump user
       dumped_users[login] = user
     end
@@ -498,8 +496,8 @@ class ActiveRecordTest < Test::Unit::TestCase
     # make sure everything was recreated
     %w[rtomayko kneath tmm1].each do |login|
       user = User.find_by_login(login)
-      assert_not_nil user
-      assert_not_nil user.profile
+      assert user
+      assert user&.profile
       assert_equal 'CHANGED', user.profile.name
       assert !user.emails.empty?, "#{login} has no emails" if login != 'tmm1'
     end
@@ -526,7 +524,7 @@ class ActiveRecordTest < Test::Unit::TestCase
     objects.each { |type, id, attrs, obj| User.load_replicant type, id, attrs }
 
     user = User.find_by_login('rtomayko')
-    assert_not_equal dumped_users['rtomayko'].id, user.id
+    assert_operator dumped_users['rtomayko'].id, :!=,  user.id
 
     User.destroy_all
     User.replicate_id = true
@@ -552,7 +550,7 @@ class ActiveRecordTest < Test::Unit::TestCase
     user = nil
     @loader.listen { |type, id, attrs, obj| user = obj }
     @loader.feed 'User', 1, 'login' => 'rtomayko'
-    assert_not_nil user
+    assert user
     assert !ran_validations, 'validations should not run on save'
   end
 
@@ -573,7 +571,7 @@ class ActiveRecordTest < Test::Unit::TestCase
     user = nil
     @loader.listen { |type, id, attrs, obj| user = obj }
     @loader.feed 'User', 1, 'login' => 'rtomayko'
-    assert_not_nil user
+    assert user
     assert !callbacks, 'callbacks should not run on save'
   end
 
